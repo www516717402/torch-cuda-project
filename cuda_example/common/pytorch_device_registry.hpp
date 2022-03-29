@@ -22,8 +22,7 @@ inline std::string GetDeviceStr(const at::Device& device) {
 }
 
 // Registry
-template <typename F, F f>
-class DeviceRegistry;
+template <typename T, T n> class DeviceRegistry;
 
 template <typename Ret, typename... Args, Ret (*f)(Args...)>
 class DeviceRegistry<Ret (*)(Args...), f> {
