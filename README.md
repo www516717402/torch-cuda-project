@@ -354,6 +354,7 @@ __global__ void nms_cuda(const int n_boxes, const float iou_threshold,
     __shared__ float block_boxes[threadsPerBlock * 4];
     // 防止最后block越界
     if (tid < col_size) {
+      // 使用共享内存存储bbox，速度比dev_boxes（全局内存）快
       // 按照列存储，每一列的数据重复（相同），注意最后一列可能存储不满
       block_boxes[tid * 4 + 0] =
           dev_boxes[(threadsPerBlock * col_start + tid) * 4 + 0];
@@ -418,7 +419,79 @@ __global__ void nms_cuda(const int n_boxes, const float iou_threshold,
     for (size_t j = blockIdx.y; j < (m); j += gridDim.y)
 ```
 
-<img src="resource/image-20220401212207084.png" alt="image-20220401212207084" style="zoom:50%;" />
+<img src="resource/image-20220402102703941.png" alt="image-20220402102703941" style="zoom:50%;" />
+
+## 1.3 cuda内核总结
+
+### 1.3.1 cuda-mns
+
+cuda-kernel的编写是一种思想：
+
+- 将问题当做**分治策略**进行处理（大问题化解为小问题单独处理），因为cuda是无数个线程组成，每个线程干单独的货即可。
+- 多利用速度快的内存，因为kernel的输入都是全局内存，而block可以申请共享内存，共享内存是低于L1的存储，速度远大于全局内存。
+
+``` c++
+// 问题：假设要计算两层for循环，每一层400个，400*400=160000次迭代
+// CPU 直接操作
+for (size_t i=0;i<400;i++)
+  for (size_t j=0;j<400;j++)
+  {float k = data[i]*data[j];};
+
+// CPU优化：由于data[1]*data[100]==data[100]*data[1]，可以去除一半的循环
+// 400*400/2=80000次迭代
+for (size_t i=0;i<400;i++)
+  for (size_t j=i+1;j<400;j++)
+  {float k = data[i]*data[j];};
+
+// GPU 直接操作, 400*400=160000个线程（一个block最大支持4096个线层，直接爆炸）
+kernel<<<1,(400,400)>>>;
+__global__ void func()
+{// 简写代码，无法运行
+  int i = threadIdx.x;
+  int y = threadIdx.y;
+  float k = data[i] * data[y];
+}
+
+// GPU 直接操作优化, 10*10*40*40=160000个线程，0次循环
+kernel<<<(10,10),(40,40)>>>;
+__global__ void func()
+{// 简写代码，无法运行
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int y = blockIdx.y * blockDim.y + threadIdx.y;
+  float k = data[i] * data[y];
+}
+
+// GPU 线程优化, 10*10*40=4000个线程，40次循环
+kernel<<<(10,10),40>>>;
+__global__ void func()
+{// 简写代码，无法运行
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  // 把其中的40个循环放在了线程内部，可以并行处理
+  for (size_t j=0, j<40; j++)
+  {
+    int m = blockIdx.y * blockDim.y + j;
+  	float k = data[i] * data[m];  
+  }
+}
+
+// GPU 内存优化, 10*10*40=4000个线程，40次循环
+kernel<<<(10,10),40>>>;
+__global__ void func()
+{// 简写代码，无法运行
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  
+  //申请共享内存，将数据放进去
+  __shared__ float share_data[40];
+  share_data[threadIdx.x] = data[blockIdx.y * blockDim.y + threadIdx.x];
+  __syncthreads(); // 等待所有线程将数据放入共享内存中
+  
+  // 使用共享的数据进行计算
+  for (size_t j=0, j<40; j++)
+  {
+  	float k = data[i] * share_data[j];  
+  }
+}
+```
 
 
 
