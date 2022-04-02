@@ -95,20 +95,20 @@ REGISTER_DEVICE_IMPL(nms_impl, GPU, nms_gpu);
 │   ├──nms.py # python包装的对外接口，对内调用pybind11-cpp/cuda代码
 │   └──csrc
 │       └── common
-│       		└── cuda # cuda核函数C代码，都是.h头文件，方便其他调用
-│           		├── nms_cuda_kernel.cuh
-│           		├── nms_rotate_cuda.cuh
+│           └── cuda # cuda核函数C代码，都是.h头文件，方便其他调用
+│               ├── nms_cuda_kernel.cuh
+│               ├── nms_rotate_cuda.cuh
 │       └── pytorch
-│   				├──nms.cpp # dispatch封装
-│   				├──nms_rotate.cpp # 同上
-│   				├──pybind.cpp # 
-│       		└── cpu
-│   						├──nms.cpp # cpu端的实现，register封装
-│   						├──nms_rotate.cpp # 同上
-│       		└── gpu
-│   						├──nms.cu # gpu端实现
-│   						├──nms_rotate.cu # 同上
-│   						├──cudabind.cpp # register封装
+│           ├──nms.cpp # dispatch封装
+│           ├──nms_rotate.cpp # 同上
+│           ├──pybind.cpp # 
+│           └── cpu
+│               ├──nms.cpp # cpu端的实现，register封装
+│               ├──nms_rotate.cpp # 同上
+│           └── gpu
+│               ├──nms.cu # gpu端实现
+│               ├──nms_rotate.cu # 同上
+│               ├──cudabind.cpp # register封装
 ```
 
 ### 1.2.2 代码解析
